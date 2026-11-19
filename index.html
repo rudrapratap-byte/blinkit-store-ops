@@ -1,0 +1,1343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Store Ops">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="A minimalist personal work and training performance tracker app.">
+<title>Blinkit Store Ops</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          mono: ['JetBrains Mono', 'monospace'],
+        },
+        colors: {
+          ops: {
+            bg: '#0b0d10',
+            panel: '#11151a',
+            panel2: '#161c23',
+            line: '#252d35',
+            text: '#e7ebef',
+            muted: '#89939d',
+            soft: '#b9c1c9',
+            accent: '#f8cb46', // Subtle Blinkit-inspired tactical gold accent
+            good: '#6ee7b7',
+            bad: '#fca5a5'
+          }
+        }
+      }
+    }
+  }
+</script>
+<style>
+  :root {
+    color-scheme: dark;
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: #0b0d10;
+    color: #e7ebef;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overscroll-behavior-y: none;
+    min-height: 100dvh;
+  }
+
+  /* Custom subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0b0d10;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #252d35;
+    border-radius: 4px;
+  }
+
+  .safe-top {
+    padding-top: max(16px, var(--sat));
+  }
+
+  .safe-bottom {
+    padding-bottom: max(12px, var(--sab));
+  }
+
+  .screen {
+    display: none;
+    animation: fadeIn 0.18s ease-out;
+  }
+
+  .screen.active {
+    display: block;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Native-like form inputs */
+  input, textarea, select {
+    background-color: #0c1014;
+    border: 1px solid #2b343e;
+    color: #e7ebef;
+    border-radius: 8px;
+    padding: 11px 12px;
+    font-size: 14px;
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: #89939d;
+    box-shadow: 0 0 0 2px rgba(231, 235, 239, 0.08);
+  }
+
+  dialog {
+    background: #11151a;
+    color: #e7ebef;
+    border: 1px solid #252d35;
+    border-radius: 14px;
+    padding: 20px;
+    width: min(440px, calc(100% - 32px));
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.75);
+  }
+
+  dialog::backdrop {
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+  }
+
+  /* Toast notification */
+  #toast {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
+  }
+</style>
+</head>
+<body class="bg-ops-bg text-ops-text antialiased selection:bg-ops-accent selection:text-black">
+
+  <!-- TOP APP BAR -->
+  <header class="sticky top-0 z-30 bg-ops-bg/90 backdrop-blur-md border-b border-ops-line safe-top">
+    <div class="max-w-2xl mx-auto px-4 pb-3 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-ops-panel border border-ops-line flex items-center justify-center shadow-inner">
+          <svg class="w-4 h-4 text-ops-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div>
+          <div class="text-xs font-extrabold tracking-[0.16em] text-ops-text">BLINKIT STORE OPS</div>
+          <div class="text-[10px] tracking-[0.12em] text-ops-muted font-mono" id="headerShiftBadge">SHIFT #1 · LOCAL TERMINAL</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="installAppBtn" class="px-2.5 py-1.5 rounded-lg bg-ops-panel2 border border-ops-line text-[10px] font-bold tracking-wider text-ops-accent hover:bg-ops-line/40 active:scale-95 transition flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>GET APP</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- COMPACT XP & LEVEL RIBBON -->
+    <div class="max-w-2xl mx-auto px-4 pb-3">
+      <div class="bg-ops-panel border border-ops-line rounded-xl p-3">
+        <div class="flex items-baseline justify-between mb-1.5">
+          <div class="flex items-baseline gap-2">
+            <span class="text-xl font-extrabold tracking-tight text-white" id="level">LEVEL 1</span>
+            <span class="text-[10px] font-bold tracking-[0.14em] px-2 py-0.5 rounded bg-ops-panel2 border border-ops-line text-ops-accent" id="rank">NOVICE</span>
+          </div>
+          <span class="text-xs font-mono font-semibold text-ops-soft" id="xpText">0 XP</span>
+        </div>
+        <div class="h-1.5 w-full bg-ops-bg rounded-full overflow-hidden border border-ops-line/50">
+          <div class="h-full bg-ops-accent transition-all duration-300 rounded-full" id="xpFill" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between text-[10px] font-mono text-ops-muted mt-1.5">
+          <span id="levelProgress">0 / 101 XP</span>
+          <span id="nextLevel">101 XP TO NEXT LEVEL</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN SCROLLABLE VIEWPORT -->
+  <main class="max-w-2xl mx-auto px-4 pt-4 pb-28">
+
+    <!-- 1. STATUS SCREEN -->
+    <section class="screen active" id="status">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-[11px] font-bold tracking-[0.16em] text-ops-muted">CURRENT STATUS</h2>
+        <span class="text-[10px] font-mono text-ops-muted" id="todayDateLabel"></span>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">LATEST IPH</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 mb-0.5 text-white" id="latestIph">—</strong>
+          <small class="block text-[10px] text-ops-muted" id="iphState">NOT MEASURED</small>
+        </div>
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">LATEST PPI</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 mb-0.5 text-white" id="latestPpi">—</strong>
+          <small class="block text-[10px] text-ops-muted" id="ppiState">NOT MEASURED</small>
+        </div>
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">SPEED INDEX</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 mb-0.5 text-white" id="speedIndex">—</strong>
+          <small class="block text-[10px] text-ops-muted" id="speedState">BASELINE NEEDED</small>
+        </div>
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">TRAINING</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 mb-0.5 text-white" id="trainingCount">0</strong>
+          <small class="block text-[10px] text-ops-muted">SESSIONS LOGGED</small>
+        </div>
+      </div>
+
+      <!-- QUICK ACTIONS ROW -->
+      <div class="grid grid-cols-2 gap-2.5 mt-3">
+        <button onclick="switchScreen('shifts')" class="p-3 rounded-xl bg-ops-panel2 border border-ops-line hover:border-ops-muted/50 active:scale-[0.99] transition text-left flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-white">Log Shift</div>
+            <div class="text-[10px] text-ops-muted">Record IPH & PPI</div>
+          </div>
+          <span class="text-ops-accent text-lg font-bold">+</span>
+        </button>
+        <button onclick="switchScreen('training')" class="p-3 rounded-xl bg-ops-panel2 border border-ops-line hover:border-ops-muted/50 active:scale-[0.99] transition text-left flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-white">Log Workout</div>
+            <div class="text-[10px] text-ops-muted">Record session</div>
+          </div>
+          <span class="text-ops-accent text-lg font-bold">+</span>
+        </button>
+      </div>
+
+      <h3 class="text-[10px] font-bold tracking-[0.14em] text-ops-muted mt-6 mb-2.5">ACTIVE SHIFT OBJECTIVES</h3>
+      <div id="activeObjectives" class="bg-ops-panel border border-ops-line rounded-xl p-4 text-center text-xs text-ops-muted">
+        No objectives recorded.
+      </div>
+
+      <div class="mt-4 p-3 rounded-xl bg-ops-panel/60 border-l-2 border-ops-muted text-[11px] text-ops-muted leading-relaxed">
+        All performance fields begin unmeasured. This terminal records only verified numbers you enter—no synthetic baselines or inflated scores.
+      </div>
+    </section>
+
+    <!-- 2. QUESTS SCREEN -->
+    <section class="screen" id="quests">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-[11px] font-bold tracking-[0.16em] text-ops-muted">QUEST BOARD</h2>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-ops-panel border border-ops-line text-ops-soft" id="questShiftTag">SHIFT #1</span>
+      </div>
+      <p class="text-xs text-ops-muted mb-4">Complete meaningful operational tasks to earn fixed XP rewards once per shift.</p>
+
+      <div id="questList" class="space-y-2.5"></div>
+
+      <div class="mt-5">
+        <button class="w-full py-3 px-4 rounded-xl bg-ops-panel2 border border-ops-line text-xs font-bold tracking-wider text-ops-soft hover:text-white hover:border-ops-muted active:scale-[0.99] transition" id="newShift">
+          START NEW SHIFT / RESET DAILY QUESTS
+        </button>
+      </div>
+
+      <h3 class="text-[10px] font-bold tracking-[0.14em] text-ops-muted mt-7 mb-2.5">CREATE CUSTOM QUEST</h3>
+      <div class="bg-ops-panel border border-ops-line rounded-xl p-4 space-y-3">
+        <div>
+          <label class="block text-[11px] font-medium text-ops-soft mb-1" for="questName">OBJECTIVE TITLE</label>
+          <input id="questName" maxlength="70" placeholder="e.g. Zero-error audit on cold chain">
+        </div>
+        <div>
+          <label class="block text-[11px] font-medium text-ops-soft mb-1" for="questDesc">COMPLETION CRITERIA</label>
+          <textarea id="questDesc" rows="2" maxlength="300" placeholder="What must be done for this to count?"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="questXp">XP REWARD (10–100)</label>
+            <input id="questXp" type="number" min="10" max="100" step="5" value="25">
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="questType">CATEGORY</label>
+            <select id="questType">
+              <option value="work">Work</option>
+              <option value="learning">Learning</option>
+              <option value="personal">Personal</option>
+            </select>
+          </div>
+        </div>
+        <button class="w-full py-3 rounded-xl bg-ops-text text-ops-bg text-xs font-extrabold tracking-wider hover:opacity-90 active:scale-[0.99] transition" id="addQuest">
+          ADD OBJECTIVE
+        </button>
+      </div>
+    </section>
+
+    <!-- 3. SHIFT LOG SCREEN -->
+    <section class="screen" id="shifts">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-[11px] font-bold tracking-[0.16em] text-ops-muted">SHIFT REPORT</h2>
+        <button class="text-[10px] font-bold tracking-wider px-2.5 py-1 rounded-lg bg-ops-panel border border-ops-line text-ops-soft hover:text-white" id="exportCsv">
+          EXPORT CSV
+        </button>
+      </div>
+
+      <div class="bg-ops-panel border border-ops-line rounded-xl p-4 space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="shiftDate">SHIFT DATE</label>
+            <input type="date" id="shiftDate">
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="shiftSkill">WORK AREA</label>
+            <select id="shiftSkill">
+              <option>Picking</option>
+              <option>Packing</option>
+              <option>Putaway</option>
+              <option>GRN</option>
+              <option>Inventory</option>
+              <option>Team coordination</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="shiftIph">IPH ACHIEVED</label>
+            <input type="number" min="0" step="any" id="shiftIph" placeholder="e.g. 145">
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="shiftPpi">PPI</label>
+            <input type="number" min="0" step="any" id="shiftPpi" placeholder="e.g. 98.5">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="shiftItems">ITEMS (OPTIONAL)</label>
+            <input type="number" min="0" step="1" id="shiftItems" placeholder="Total items">
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="shiftHours">HOURS (OPTIONAL)</label>
+            <input type="number" min="0" step="0.25" id="shiftHours" placeholder="e.g. 8">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-medium text-ops-soft mb-1" for="shiftNotes">FIELD OBSERVATIONS</label>
+          <textarea id="shiftNotes" rows="2" maxlength="1200" placeholder="What went well? Any bottlenecks or learnings?"></textarea>
+        </div>
+
+        <button class="w-full py-3 rounded-xl bg-ops-text text-ops-bg text-xs font-extrabold tracking-wider hover:opacity-90 active:scale-[0.99] transition" id="saveShift">
+          SAVE SHIFT REPORT
+        </button>
+      </div>
+
+      <h3 class="text-[10px] font-bold tracking-[0.14em] text-ops-muted mt-6 mb-2.5">SHIFT HISTORY</h3>
+      <div id="shiftHistory" class="bg-ops-panel border border-ops-line rounded-xl p-4 text-center text-xs text-ops-muted">
+        No shift reports recorded.
+      </div>
+    </section>
+
+    <!-- 4. TRAINING SCREEN -->
+    <section class="screen" id="training">
+      <h2 class="text-[11px] font-bold tracking-[0.16em] text-ops-muted mb-2">TRAINING PROTOCOL</h2>
+      <p class="text-xs text-ops-muted mb-4">Log deliberate physical sessions and recovery. Missed work targets never trigger extra exercise.</p>
+
+      <div class="grid grid-cols-2 gap-2.5 mb-3">
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">SESSIONS LOGGED</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 text-white" id="trainingSessions">0</strong>
+        </div>
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">TOTAL MINUTES</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 text-white" id="trainingMinutes">0</strong>
+        </div>
+      </div>
+
+      <div class="bg-ops-panel border border-ops-line rounded-xl p-4 space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="trainingDate">DATE</label>
+            <input type="date" id="trainingDate">
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="trainingDuration">DURATION (MIN)</label>
+            <input type="number" min="1" max="600" id="trainingDuration" placeholder="e.g. 40">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="trainingType">SESSION TYPE</label>
+            <select id="trainingType">
+              <option>Strength</option>
+              <option>Conditioning</option>
+              <option>Mobility</option>
+              <option>Boxing / martial arts</option>
+              <option>Walking</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-ops-soft mb-1" for="trainingEffort">EFFORT LEVEL</label>
+            <select id="trainingEffort">
+              <option value="Easy">Easy</option>
+              <option value="Moderate" selected>Moderate</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-medium text-ops-soft mb-1" for="trainingNotes">EXERCISES & RECOVERY NOTES</label>
+          <textarea id="trainingNotes" rows="2" maxlength="800" placeholder="Exercises, sets, recovery, how your body felt"></textarea>
+        </div>
+
+        <button class="w-full py-3 rounded-xl bg-ops-text text-ops-bg text-xs font-extrabold tracking-wider hover:opacity-90 active:scale-[0.99] transition" id="saveTraining">
+          SAVE TRAINING SESSION
+        </button>
+      </div>
+
+      <h3 class="text-[10px] font-bold tracking-[0.14em] text-ops-muted mt-6 mb-2.5">TRAINING HISTORY</h3>
+      <div id="trainingHistory" class="bg-ops-panel border border-ops-line rounded-xl p-4 text-center text-xs text-ops-muted">
+        No sessions recorded.
+      </div>
+
+      <div class="mt-4 p-3 rounded-xl bg-ops-panel/60 border-l-2 border-ops-muted text-[11px] text-ops-muted">
+        Stop immediately if you experience sharp pain, dizziness, or unusual exhaustion. Sleep and nutrition are core parts of progression.
+      </div>
+    </section>
+
+    <!-- 5. ANALYTICS SCREEN -->
+    <section class="screen" id="analytics">
+      <h2 class="text-[11px] font-bold tracking-[0.16em] text-ops-muted mb-2">PERFORMANCE ANALYTICS</h2>
+      <p class="text-xs text-ops-muted mb-4">Calculated strictly from your saved shift reports.</p>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">RECORDED SHIFTS</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 text-white" id="shiftCount">0</strong>
+        </div>
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">IPH CHANGE</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 text-white" id="iphDelta">—</strong>
+        </div>
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">PPI CHANGE</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 text-white" id="ppiDelta">—</strong>
+        </div>
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">SPEED INDEX</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 text-white" id="analyticsSpeed">—</strong>
+        </div>
+      </div>
+
+      <!-- VISUAL IPH TREND CHART -->
+      <h3 class="text-[10px] font-bold tracking-[0.14em] text-ops-muted mt-6 mb-2.5">IPH TRAJECTORY (RECENT SHIFTS)</h3>
+      <div class="bg-ops-panel border border-ops-line rounded-xl p-4">
+        <div id="iphChartContainer" class="w-full h-36 flex items-center justify-center text-xs text-ops-muted">
+          Log at least 2 shifts with IPH to render trend graph.
+        </div>
+      </div>
+
+      <h3 class="text-[10px] font-bold tracking-[0.14em] text-ops-muted mt-6 mb-2.5">SHIFT-OVER-SHIFT COMPARISON</h3>
+      <div class="bg-ops-panel border border-ops-line rounded-xl p-4">
+        <p class="text-xs text-ops-muted mb-3 leading-relaxed" id="trendNote">Save at least two shift reports to establish a comparison.</p>
+        <div class="divide-y divide-ops-line text-xs">
+          <div class="py-2.5 flex justify-between">
+            <span class="text-ops-muted">Latest recorded IPH</span>
+            <strong class="font-mono text-white" id="analyticsIph">—</strong>
+          </div>
+          <div class="py-2.5 flex justify-between">
+            <span class="text-ops-muted">Previous recorded IPH</span>
+            <strong class="font-mono text-ops-soft" id="previousIph">—</strong>
+          </div>
+          <div class="py-2.5 flex justify-between">
+            <span class="text-ops-muted">Latest recorded PPI</span>
+            <strong class="font-mono text-white" id="analyticsPpi">—</strong>
+          </div>
+          <div class="py-2.5 flex justify-between">
+            <span class="text-ops-muted">Previous recorded PPI</span>
+            <strong class="font-mono text-ops-soft" id="previousPpi">—</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. PROFILE / ATTRIBUTES SCREEN -->
+    <section class="screen" id="attributes">
+      <h2 class="text-[11px] font-bold tracking-[0.16em] text-ops-muted mb-3">OPERATOR PROFILE</h2>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">LEVEL</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 text-white" id="profileLevel">1</strong>
+          <small class="block text-[10px] text-ops-accent" id="profileRank">NOVICE</small>
+        </div>
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">TOTAL XP</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 text-white" id="profileXp">0</strong>
+          <small class="block text-[10px] text-ops-muted">VERIFIED REWARDS</small>
+        </div>
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">SPEED</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 text-white" id="profileSpeed">—</strong>
+          <small class="block text-[10px] text-ops-muted">SHIFT DELTA</small>
+        </div>
+        <div class="bg-ops-panel border border-ops-line rounded-xl p-3.5">
+          <label class="block text-[9px] font-bold tracking-[0.14em] text-ops-muted">STRENGTH</label>
+          <strong class="block text-2xl font-bold font-mono mt-1 text-white" id="profileStrength">—</strong>
+          <small class="block text-[10px] text-ops-muted">UNMEASURED</small>
+        </div>
+      </div>
+
+      <h3 class="text-[10px] font-bold tracking-[0.14em] text-ops-muted mt-6 mb-2.5">ATTRIBUTE REGISTER</h3>
+      <div class="bg-ops-panel border border-ops-line rounded-xl p-4 divide-y divide-ops-line text-xs">
+        <div class="py-2.5 flex justify-between">
+          <span class="text-ops-muted">Speed</span>
+          <strong class="font-mono text-white" id="speedDescription">Unmeasured</strong>
+        </div>
+        <div class="py-2.5 flex justify-between">
+          <span class="text-ops-muted">Strength</span>
+          <strong class="font-mono text-white" id="strengthDescription">Unmeasured</strong>
+        </div>
+        <div class="py-2.5 flex justify-between">
+          <span class="text-ops-muted">Precision</span>
+          <strong class="font-mono text-white" id="precisionDescription">Unmeasured</strong>
+        </div>
+        <div class="py-2.5 flex justify-between">
+          <span class="text-ops-muted">Consistency</span>
+          <strong class="font-mono text-white" id="consistencyDescription">Unmeasured</strong>
+        </div>
+      </div>
+
+      <h3 class="text-[10px] font-bold tracking-[0.14em] text-ops-muted mt-6 mb-2.5">APP INSTALLATION & DATA BACKUP</h3>
+      <div class="bg-ops-panel border border-ops-line rounded-xl p-4 space-y-2.5">
+        <button class="w-full py-2.5 px-4 rounded-lg bg-ops-panel2 border border-ops-line text-xs font-bold tracking-wider text-ops-accent hover:border-ops-accent/50 transition flex items-center justify-center gap-2" id="openInstallGuide">
+          <span>HOW TO INSTALL ON PHONE / DESKTOP</span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2.5 pt-1">
+          <button class="py-2.5 px-3 rounded-lg bg-ops-panel2 border border-ops-line text-xs font-bold text-ops-soft hover:text-white transition" id="exportBackup">
+            EXPORT JSON
+          </button>
+          <button class="py-2.5 px-3 rounded-lg bg-ops-panel2 border border-ops-line text-xs font-bold text-ops-soft hover:text-white transition" id="importBackup">
+            IMPORT JSON
+          </button>
+          <input type="file" id="backupFile" accept="application/json" class="hidden">
+        </div>
+
+        <button class="w-full py-2.5 px-4 rounded-lg border border-red-900/60 text-ops-bad text-xs font-bold tracking-wider hover:bg-red-950/30 transition mt-2" id="clearData">
+          DELETE ALL LOCAL DATA
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM APP NAVIGATION BAR -->
+  <nav class="fixed bottom-0 inset-x-0 z-30 bg-ops-bg/95 backdrop-blur-md border-t border-ops-line safe-bottom">
+    <div class="max-w-2xl mx-auto grid grid-cols-6 px-1 pt-1.5 pb-1">
+      <button class="nav-btn active flex flex-col items-center justify-center py-1.5 text-ops-accent" data-screen="status">
+        <svg class="w-5 h-5 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+          <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+        </svg>
+        <span class="text-[9px] font-bold tracking-wider">STATUS</span>
+      </button>
+
+      <button class="nav-btn flex flex-col items-center justify-center py-1.5 text-ops-muted hover:text-ops-soft" data-screen="quests">
+        <svg class="w-5 h-5 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9 11 12 14 22 4"></polyline>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+        </svg>
+        <span class="text-[9px] font-bold tracking-wider">QUESTS</span>
+      </button>
+
+      <button class="nav-btn flex flex-col items-center justify-center py-1.5 text-ops-muted hover:text-ops-soft" data-screen="shifts">
+        <svg class="w-5 h-5 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+        </svg>
+        <span class="text-[9px] font-bold tracking-wider">SHIFTS</span>
+      </button>
+
+      <button class="nav-btn flex flex-col items-center justify-center py-1.5 text-ops-muted hover:text-ops-soft" data-screen="training">
+        <svg class="w-5 h-5 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+          <line x1="6" y1="1" x2="6" y2="4"></line>
+          <line x1="10" y1="1" x2="10" y2="4"></line>
+          <line x1="14" y1="1" x2="14" y2="4"></line>
+        </svg>
+        <span class="text-[9px] font-bold tracking-wider">TRAIN</span>
+      </button>
+
+      <button class="nav-btn flex flex-col items-center justify-center py-1.5 text-ops-muted hover:text-ops-soft" data-screen="analytics">
+        <svg class="w-5 h-5 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+        <span class="text-[9px] font-bold tracking-wider">STATS</span>
+      </button>
+
+      <button class="nav-btn flex flex-col items-center justify-center py-1.5 text-ops-muted hover:text-ops-soft" data-screen="attributes">
+        <svg class="w-5 h-5 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span class="text-[9px] font-bold tracking-wider">PROFILE</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- FLOATING TOAST FEEDBACK -->
+  <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-ops-text text-ops-bg text-xs font-bold tracking-wide shadow-xl opacity-0 pointer-events-none translate-y-[-12px]">
+    Saved
+  </div>
+
+  <!-- CONFIRMATION & ALERT DIALOG -->
+  <dialog id="confirmDialog">
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="text-xs font-extrabold tracking-[0.14em] text-white" id="dialogTitle">CONFIRM</h3>
+      <button class="text-ops-muted hover:text-white text-xl leading-none" id="closeDialog" aria-label="Close">×</button>
+    </div>
+    <p class="text-xs text-ops-soft leading-relaxed mb-5" id="dialogText"></p>
+    <div class="flex gap-2.5">
+      <button class="flex-1 py-2.5 rounded-lg bg-ops-panel2 border border-ops-line text-xs font-bold text-ops-soft" id="cancelDialog">CANCEL</button>
+      <button class="flex-1 py-2.5 rounded-lg bg-ops-text text-ops-bg text-xs font-extrabold" id="confirmAction">CONFIRM</button>
+    </div>
+  </dialog>
+
+  <!-- APP INSTALLATION & HANDOVER DIALOG -->
+  <dialog id="installDialog">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-ops-accent"></span>
+        <h3 class="text-xs font-extrabold tracking-[0.14em] text-white">INSTALL STANDALONE APP</h3>
+      </div>
+      <button class="text-ops-muted hover:text-white text-xl leading-none" id="closeInstallDialog">×</button>
+    </div>
+    <div class="space-y-3 text-xs text-ops-soft leading-relaxed">
+      <p>This tracker is built as a <strong>self-contained, offline-first Web App</strong>. All data stays private on your device.</p>
+
+      <div id="nativeInstallSection" class="hidden p-3 rounded-xl bg-ops-panel2 border border-ops-accent/40">
+        <p class="text-white font-semibold mb-2">One-Tap Install Ready</p>
+        <button id="triggerNativeInstall" class="w-full py-2.5 rounded-lg bg-ops-accent text-black font-extrabold text-xs tracking-wider">
+          INSTALL TO HOME SCREEN
+        </button>
+      </div>
+
+      <div class="p-3 rounded-xl bg-ops-panel2 border border-ops-line space-y-2">
+        <div class="font-bold text-white text-[11px] tracking-wider">OPTION 1: INSTALL ON PHONE / CHROME</div>
+        <ul class="list-disc pl-4 space-y-1 text-[11px] text-ops-muted">
+          <li><strong>Android (Chrome):</strong> Tap the <span class="text-white">⋮ menu</span> → <span class="text-white">Add to Home screen</span> or <span class="text-white">Install app</span>.</li>
+          <li><strong>iPhone (Safari):</strong> Tap the <span class="text-white">Share icon</span> → <span class="text-white">Add to Home Screen</span>.</li>
+        </ul>
+      </div>
+
+      <div class="p-3 rounded-xl bg-ops-panel2 border border-ops-line space-y-2">
+        <div class="font-bold text-white text-[11px] tracking-wider">OPTION 2: DOWNLOAD OFFLINE APP FILE</div>
+        <p class="text-[11px] text-ops-muted">Download the single-file app directly to your phone or PC to launch anytime without internet:</p>
+        <button id="downloadStandaloneHtml" class="w-full py-2.5 rounded-lg bg-ops-text text-ops-bg font-extrabold text-xs tracking-wider">
+          DOWNLOAD BLINKIT-OPS-APP.HTML
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+<script>
+'use strict';
+
+// ==========================================
+// 1. DYNAMIC PWA MANIFEST & ICON GENERATION
+// ==========================================
+(function setupPWA() {
+  try {
+    const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b0d10"/><rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#252d35" stroke-width="12"/><polygon points="278 76 112 284 252 284 234 436 400 228 260 228 278 76" fill="#f8cb46"/></svg>`;
+    const iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgIcon);
+
+    const linkIcon = document.createElement('link');
+    linkIcon.rel = 'icon';
+    linkIcon.href = iconUrl;
+    document.head.appendChild(linkIcon);
+
+    const appleIcon = document.createElement('link');
+    appleIcon.rel = 'apple-touch-icon';
+    appleIcon.href = iconUrl;
+    document.head.appendChild(appleIcon);
+
+    const manifest = {
+      name: 'Blinkit Store Ops',
+      short_name: 'Store Ops',
+      description: 'Personal Store Operations & Training Tracker',
+      start_url: '.',
+      display: 'standalone',
+      background_color: '#0b0d10',
+      theme_color: '#0b0d10',
+      icons: [
+        { src: iconUrl, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
+        { src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
+      ]
+    };
+
+    const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+    const manifestLink = document.createElement('link');
+    manifestLink.rel = 'manifest';
+    manifestLink.href = URL.createObjectURL(manifestBlob);
+    document.head.appendChild(manifestLink);
+  } catch (e) {
+    console.warn('Manifest setup skipped:', e);
+  }
+})();
+
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const nativeBox = document.getElementById('nativeInstallSection');
+  if (nativeBox) nativeBox.classList.remove('hidden');
+});
+
+// ==========================================
+// 2. CORE STATE & STORAGE
+// ==========================================
+const KEY = 'blinkitStoreOpsMinimalV1';
+const $ = id => document.getElementById(id);
+
+const today = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+};
+
+const ranks = [
+  ['NOVICE', 1], ['APPRENTICE', 10], ['ADEPT', 20], ['FIGHTER', 30],
+  ['WARRIOR', 40], ['VETERAN', 50], ['KNIGHT', 60], ['CHAMPION', 70],
+  ['HERO', 80], ['LEGEND', 90], ['LORD', 100]
+];
+
+const baseQuests = [
+  { id: 'accuracy', name: 'Accuracy check', desc: 'Review a completed task for errors and correct any identified issue.', xp: 25, category: 'work' },
+  { id: 'workflow', name: 'Workflow improvement', desc: 'Identify and apply one practical improvement to your work process.', xp: 35, category: 'work' },
+  { id: 'teamwork', name: 'Team contribution', desc: 'Provide useful support or coordination to a teammate.', xp: 30, category: 'work' },
+  { id: 'learning', name: 'Skill development', desc: 'Practise or learn one relevant operational skill.', xp: 30, category: 'learning' }
+];
+
+const emptyData = () => ({
+  version: 1,
+  xp: 0,
+  shiftNo: 1,
+  quests: {},
+  customQuests: [],
+  shifts: [],
+  training: []
+});
+
+let data = emptyData();
+let pendingAction = null;
+
+// Toast Notification
+let toastTimer = null;
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.remove('opacity-0', 'translate-y-[-12px]');
+  el.classList.add('opacity-100', 'translate-y-0');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.classList.add('opacity-0', 'translate-y-[-12px]');
+    el.classList.remove('opacity-100', 'translate-y-0');
+  }, 2200);
+}
+
+// Custom Modal Dialogs
+const dialog = $('confirmDialog');
+function showNotice(title, text) {
+  $('dialogTitle').textContent = title;
+  $('dialogText').textContent = text;
+  $('cancelDialog').classList.add('hidden');
+  $('confirmAction').className = 'flex-1 py-2.5 rounded-lg bg-ops-text text-ops-bg text-xs font-extrabold';
+  $('confirmAction').textContent = 'OK';
+  pendingAction = null;
+  dialog.showModal();
+}
+
+function showConfirm(title, text, onConfirm, isDanger = false) {
+  $('dialogTitle').textContent = title;
+  $('dialogText').textContent = text;
+  $('cancelDialog').classList.remove('hidden');
+  $('confirmAction').className = isDanger
+    ? 'flex-1 py-2.5 rounded-lg bg-red-600 text-white text-xs font-extrabold'
+    : 'flex-1 py-2.5 rounded-lg bg-ops-text text-ops-bg text-xs font-extrabold';
+  $('confirmAction').textContent = 'CONFIRM';
+  pendingAction = onConfirm;
+  dialog.showModal();
+}
+
+$('closeDialog').addEventListener('click', () => dialog.close());
+$('cancelDialog').addEventListener('click', () => dialog.close());
+$('confirmAction').addEventListener('click', () => {
+  dialog.close();
+  if (typeof pendingAction === 'function') {
+    const fn = pendingAction;
+    pendingAction = null;
+    fn();
+  }
+});
+
+// Install Modal Controls
+const installDialog = $('installDialog');
+$('installAppBtn').addEventListener('click', () => installDialog.showModal());
+$('openInstallGuide').addEventListener('click', () => installDialog.showModal());
+$('closeInstallDialog').addEventListener('click', () => installDialog.close());
+
+$('triggerNativeInstall').addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  if (outcome === 'accepted') {
+    toast('App installed!');
+    installDialog.close();
+  }
+  deferredInstallPrompt = null;
+});
+
+$('downloadStandaloneHtml').addEventListener('click', () => {
+  const htmlContent = '<!doctype html>\n' + document.documentElement.outerHTML;
+  download('blinkit-store-ops-app.html', htmlContent, 'text/html');
+  toast('Downloaded app file');
+});
+
+// LocalStorage Persistence
+function safeLoad() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return;
+    const x = JSON.parse(raw);
+    if (x && x.version === 1 && Array.isArray(x.shifts) && Array.isArray(x.training) && typeof x.xp === 'number') {
+      data = { ...emptyData(), ...x };
+    }
+  } catch (e) {
+    console.warn('Could not load tracker data', e);
+  }
+}
+
+function save() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Could not save to localStorage', e);
+  }
+  render();
+}
+
+// ==========================================
+// 3. LEVELING & ANALYTICS MATH
+// ==========================================
+function levelInfo(xp) {
+  let level = 1, remaining = xp;
+  while (level < 100) {
+    const cost = 100 + Math.round(level * level * 1.15);
+    if (remaining < cost) break;
+    remaining -= cost;
+    level++;
+  }
+  const next = level === 100 ? 0 : 100 + Math.round(level * level * 1.15);
+  return {
+    level,
+    remaining,
+    next,
+    rank: [...ranks].reverse().find(r => level >= r[1])[0]
+  };
+}
+
+function fmt(n, d = 1) { return Number(n).toFixed(d); }
+function signed(n, d = 1) { return (n > 0 ? '+' : '') + fmt(n, d); }
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function allQuests() { return [...baseQuests, ...data.customQuests]; }
+function questDone(id) { return !!(data.quests[data.shiftNo] && data.quests[data.shiftNo][id]); }
+
+function completeQuest(id) {
+  const q = allQuests().find(x => x.id === id);
+  if (!q || questDone(id)) return;
+  if (!data.quests[data.shiftNo]) data.quests[data.shiftNo] = {};
+  data.quests[data.shiftNo][id] = true;
+  data.xp += q.xp;
+  if (navigator.vibrate) navigator.vibrate(25);
+  save();
+  toast(`+${q.xp} XP Earned`);
+}
+
+function deltas() {
+  const s = [...data.shifts].sort((a, b) => a.date.localeCompare(b.date) || a.created - b.created);
+  if (s.length < 2) return null;
+  const a = s[s.length - 2], b = s[s.length - 1];
+  return {
+    iph: a.iph !== null && b.iph !== null ? b.iph - a.iph : null,
+    ppi: a.ppi !== null && b.ppi !== null ? b.ppi - a.ppi : null,
+    a,
+    b
+  };
+}
+
+// ==========================================
+// 4. UI RENDERING
+// ==========================================
+function renderHeader() {
+  const l = levelInfo(data.xp);
+  $('level').textContent = 'LEVEL ' + l.level;
+  $('rank').textContent = l.rank;
+  $('xpText').textContent = data.xp + ' XP';
+  $('levelProgress').textContent = l.remaining + ' / ' + (l.next || 'MAX') + ' XP';
+  $('nextLevel').textContent = l.next ? (l.next - l.remaining) + ' XP TO NEXT' : 'MAX LEVEL';
+  $('xpFill').style.width = (l.next ? (l.remaining / l.next) * 100 : 100) + '%';
+  $('headerShiftBadge').textContent = `SHIFT #${data.shiftNo} · LOCAL TERMINAL`;
+  $('questShiftTag').textContent = `SHIFT #${data.shiftNo}`;
+  $('profileLevel').textContent = l.level;
+  $('profileRank').textContent = l.rank;
+  $('profileXp').textContent = data.xp;
+}
+
+function renderStatus() {
+  const s = [...data.shifts].sort((a, b) => b.date.localeCompare(a.date) || b.created - a.created)[0];
+  $('latestIph').textContent = s && s.iph !== null ? s.iph : '—';
+  $('latestPpi').textContent = s && s.ppi !== null ? s.ppi : '—';
+  $('iphState').textContent = s && s.iph !== null ? s.date : 'NOT MEASURED';
+  $('ppiState').textContent = s && s.ppi !== null ? s.date : 'NOT MEASURED';
+  $('trainingCount').textContent = data.training.length;
+
+  const d = deltas();
+  if (d && d.iph !== null && d.a.iph > 0) {
+    const pct = (d.iph / d.a.iph) * 100;
+    $('speedIndex').textContent = signed(pct, 1) + '%';
+    $('speedIndex').className = `block text-2xl font-bold font-mono mt-1 mb-0.5 ${pct >= 0 ? 'text-ops-good' : 'text-ops-bad'}`;
+    $('speedState').textContent = 'VS PREV SHIFT';
+  } else {
+    $('speedIndex').textContent = '—';
+    $('speedIndex').className = 'block text-2xl font-bold font-mono mt-1 mb-0.5 text-white';
+    $('speedState').textContent = 'BASELINE NEEDED';
+  }
+
+  const active = allQuests().filter(q => !questDone(q.id));
+  const objBox = $('activeObjectives');
+  if (active.length) {
+    objBox.className = 'bg-ops-panel border border-ops-line rounded-xl divide-y divide-ops-line px-4';
+    objBox.innerHTML = active.slice(0, 4).map(q => `
+      <div class="py-3 flex items-center justify-between gap-2 text-xs">
+        <span class="text-ops-text font-medium">${esc(q.name)}</span>
+        <button onclick="completeQuest('${esc(q.id)}')" class="px-2.5 py-1 rounded-md bg-ops-panel2 border border-ops-line text-[10px] font-mono font-bold text-ops-accent hover:border-ops-accent active:scale-95 transition">
+          +${q.xp} XP
+        </button>
+      </div>
+    `).join('');
+  } else {
+    objBox.className = 'bg-ops-panel border border-ops-line rounded-xl p-4 text-center text-xs text-ops-muted';
+    objBox.textContent = 'All objectives completed for Shift #' + data.shiftNo + '.';
+  }
+}
+
+function renderQuests() {
+  $('questList').innerHTML = allQuests().map(q => {
+    const done = questDone(q.id);
+    return `
+      <div class="bg-ops-panel border ${done ? 'border-ops-line/60 opacity-75' : 'border-ops-line'} rounded-xl p-4">
+        <div class="flex items-start justify-between gap-2">
+          <div class="text-xs font-bold text-white">${esc(q.name)}</div>
+          <span class="text-[9px] font-bold tracking-wider px-2 py-0.5 rounded bg-ops-panel2 border border-ops-line text-ops-muted">
+            ${esc(q.category || 'CUSTOM').toUpperCase()}
+          </span>
+        </div>
+        <p class="text-xs text-ops-muted mt-1.5 mb-3 leading-relaxed">${esc(q.desc)}</p>
+        <div class="flex items-center justify-between pt-2 border-t border-ops-line/60">
+          <span class="text-[11px] font-mono font-semibold ${done ? 'text-ops-good' : 'text-ops-accent'}">
+            ${q.xp} XP · ${done ? 'CLAIMED' : 'AVAILABLE'}
+          </span>
+          <button
+            class="px-3.5 py-1.5 rounded-lg text-[11px] font-bold tracking-wider transition active:scale-95 ${
+              done
+                ? 'bg-ops-panel2 text-ops-muted border border-ops-line cursor-not-allowed'
+                : 'bg-ops-text text-ops-bg hover:opacity-90'
+            }"
+            data-quest="${esc(q.id)}"
+            ${done ? 'disabled' : ''}>
+            ${done ? 'COMPLETED' : 'CLAIM XP'}
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.querySelectorAll('[data-quest]').forEach(b =>
+    b.addEventListener('click', () => completeQuest(b.dataset.quest))
+  );
+}
+
+function renderIphChart() {
+  const validShifts = [...data.shifts]
+    .filter(s => s.iph !== null && Number.isFinite(s.iph))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.created - b.created)
+    .slice(-10);
+
+  const container = $('iphChartContainer');
+  if (validShifts.length < 2) {
+    container.innerHTML = `<span class="text-xs text-ops-muted">Log at least 2 shifts with IPH to render trend graph.</span>`;
+    return;
+  }
+
+  const values = validShifts.map(s => s.iph);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const pad = (maxVal - minVal) * 0.2 || 10;
+  const low = Math.max(0, minVal - pad);
+  const high = maxVal + pad;
+
+  const width = 560;
+  const height = 140;
+  const padX = 28;
+  const padY = 22;
+
+  const points = validShifts.map((s, idx) => {
+    const x = padX + (idx / (validShifts.length - 1)) * (width - padX * 2);
+    const y = height - padY - ((s.iph - low) / (high - low)) * (height - padY * 2);
+    return { x, y, iph: s.iph, date: s.date.slice(5) };
+  });
+
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const areaD = `${pathD} L ${points[points.length - 1].x.toFixed(1)} ${height - padY} L ${points[0].x.toFixed(1)} ${height - padY} Z`;
+
+  container.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" class="w-full h-full overflow-visible">
+      <defs>
+        <linearGradient id="iphGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#f8cb46" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="#f8cb46" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <path d="${areaD}" fill="url(#iphGrad)"/>
+      <path d="${pathD}" fill="none" stroke="#f8cb46" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${points.map(p => `
+        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="#0b0d10" stroke="#f8cb46" stroke-width="2"/>
+        <text x="${p.x.toFixed(1)}" y="${(p.y - 8).toFixed(1)}" text-anchor="middle" fill="#e7ebef" font-size="10" font-family="JetBrains Mono, monospace" font-weight="700">${p.iph}</text>
+        <text x="${p.x.toFixed(1)}" y="${height - 4}" text-anchor="middle" fill="#89939d" font-size="9" font-family="JetBrains Mono, monospace">${p.date}</text>
+      `).join('')}
+    </svg>
+  `;
+}
+
+function renderAnalytics() {
+  const s = [...data.shifts].sort((a, b) => a.date.localeCompare(b.date) || a.created - b.created);
+  const latest = s[s.length - 1], previous = s[s.length - 2], d = deltas();
+  $('shiftCount').textContent = data.shifts.length;
+  $('iphDelta').textContent = d && d.iph !== null ? signed(d.iph) : '—';
+  $('ppiDelta').textContent = d && d.ppi !== null ? signed(d.ppi) : '—';
+  $('analyticsSpeed').textContent = d && d.iph !== null && d.a.iph > 0 ? signed((d.iph / d.a.iph) * 100, 1) + '%' : '—';
+  $('analyticsIph').textContent = latest && latest.iph !== null ? latest.iph : '—';
+  $('analyticsPpi').textContent = latest && latest.ppi !== null ? latest.ppi : '—';
+  $('previousIph').textContent = previous && previous.iph !== null ? previous.iph : '—';
+  $('previousPpi').textContent = previous && previous.ppi !== null ? previous.ppi : '—';
+  $('trendNote').textContent = d
+    ? `Comparing ${d.a.date} against ${d.b.date}. Higher IPH reflects increased picking/packing throughput.`
+    : 'Save at least two shift reports with measured numbers to calculate shift-over-shift deltas.';
+
+  renderIphChart();
+}
+
+function renderAttributes() {
+  const d = deltas();
+  const speed = d && d.iph !== null && d.a.iph > 0 ? signed((d.iph / d.a.iph) * 100, 1) + '%' : '—';
+  $('profileSpeed').textContent = speed;
+  $('speedDescription').textContent = speed === '—' ? 'Unmeasured' : speed + ' IPH change';
+  $('strengthDescription').textContent = 'Unmeasured';
+  $('profileStrength').textContent = '—';
+  const p = d && d.ppi !== null ? signed(d.ppi) : '—';
+  $('precisionDescription').textContent = p === '—' ? 'Unmeasured' : p + ' PPI change';
+  $('consistencyDescription').textContent = data.shifts.length < 2 ? 'Unmeasured' : data.shifts.length + ' shifts logged';
+}
+
+function renderTraining() {
+  $('trainingSessions').textContent = data.training.length;
+  $('trainingCount').textContent = data.training.length;
+  $('trainingMinutes').textContent = data.training.reduce((a, x) => a + x.minutes, 0);
+
+  const histBox = $('trainingHistory');
+  if (data.training.length) {
+    histBox.className = 'bg-ops-panel border border-ops-line rounded-xl divide-y divide-ops-line px-4';
+    histBox.innerHTML = [...data.training].reverse().map(t => `
+      <div class="py-3.5">
+        <div class="flex items-center justify-between gap-2">
+          <strong class="text-xs font-bold text-white">${esc(t.type)} · <span class="font-mono text-ops-accent">${t.minutes} min</span></strong>
+          <span class="text-[9px] font-bold tracking-wider px-2 py-0.5 rounded bg-ops-panel2 border border-ops-line text-ops-soft">${esc(t.effort)}</span>
+        </div>
+        <div class="text-[10px] font-mono text-ops-muted mt-0.5">${esc(t.date)}</div>
+        ${t.notes ? `<p class="text-xs text-ops-soft mt-1.5 whitespace-pre-wrap">${esc(t.notes)}</p>` : ''}
+      </div>`
+    ).join('');
+  } else {
+    histBox.className = 'bg-ops-panel border border-ops-line rounded-xl p-4 text-center text-xs text-ops-muted';
+    histBox.textContent = 'No sessions recorded.';
+  }
+}
+
+function renderShifts() {
+  const histBox = $('shiftHistory');
+  if (data.shifts.length) {
+    histBox.className = 'bg-ops-panel border border-ops-line rounded-xl divide-y divide-ops-line px-4';
+    histBox.innerHTML = [...data.shifts]
+      .sort((a, b) => b.date.localeCompare(a.date) || b.created - a.created)
+      .map(s => `
+        <div class="py-3.5">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <strong class="text-xs font-bold text-white font-mono">${esc(s.date)} · ${esc(s.skill)}</strong>
+            <span class="text-[9px] font-bold tracking-wider px-2 py-0.5 rounded bg-ops-panel2 border border-ops-line text-ops-muted">SHIFT</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 bg-ops-panel2/60 rounded-lg p-2.5 text-xs">
+            <div class="flex justify-between">
+              <span class="text-ops-muted">IPH</span>
+              <strong class="font-mono text-white">${s.iph === null ? '—' : s.iph}</strong>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-ops-muted">PPI</span>
+              <strong class="font-mono text-white">${s.ppi === null ? '—' : s.ppi}</strong>
+            </div>
+          </div>
+          ${(s.items !== null || s.hours !== null || s.notes) ? `
+            <p class="text-[11px] text-ops-muted mt-2 leading-relaxed">
+              ${s.items !== null ? `Items: <span class="text-ops-soft font-mono">${s.items}</span> · ` : ''}
+              ${s.hours !== null ? `Hours: <span class="text-ops-soft font-mono">${s.hours}</span> · ` : ''}
+              ${esc(s.notes || '')}
+            </p>
+          ` : ''}
+        </div>`
+      ).join('');
+  } else {
+    histBox.className = 'bg-ops-panel border border-ops-line rounded-xl p-4 text-center text-xs text-ops-muted';
+    histBox.textContent = 'No shift reports recorded.';
+  }
+}
+
+function render() {
+  renderHeader();
+  renderStatus();
+  renderAnalytics();
+  renderQuests();
+  renderAttributes();
+  renderTraining();
+  renderShifts();
+}
+
+// ==========================================
+// 5. NAVIGATION & EVENT HANDLERS
+// ==========================================
+function switchScreen(screenId) {
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    const active = btn.dataset.screen === screenId;
+    btn.classList.toggle('active', active);
+    btn.classList.toggle('text-ops-accent', active);
+    btn.classList.toggle('text-ops-muted', !active);
+  });
+  document.querySelectorAll('.screen').forEach(sec => {
+    sec.classList.toggle('active', sec.id === screenId);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.querySelectorAll('.nav-btn').forEach(b => {
+  b.addEventListener('click', () => switchScreen(b.dataset.screen));
+});
+
+$('addQuest').addEventListener('click', () => {
+  const name = $('questName').value.trim();
+  const desc = $('questDesc').value.trim();
+  const xp = Number($('questXp').value);
+  if (!name || !desc || !Number.isInteger(xp) || xp < 10 || xp > 100) {
+    showNotice('INVALID INPUT', 'Enter an objective title, completion criteria, and an XP reward between 10 and 100.');
+    return;
+  }
+  data.customQuests.push({
+    id: 'custom-' + Date.now(),
+    name,
+    desc,
+    xp,
+    category: $('questType').value
+  });
+  $('questName').value = '';
+  $('questDesc').value = '';
+  save();
+  toast('Objective added');
+});
+
+$('newShift').addEventListener('click', () => {
+  showConfirm(
+    'START NEW SHIFT',
+    'Advance to Shift #' + (data.shiftNo + 1) + '? This resets the daily quest checklist while keeping all XP and history.',
+    () => {
+      data.shiftNo++;
+      save();
+      toast('Started Shift #' + data.shiftNo);
+    }
+  );
+});
+
+$('saveShift').addEventListener('click', () => {
+  const date = $('shiftDate').value;
+  const iph = $('shiftIph').value === '' ? null : Number($('shiftIph').value);
+  const ppi = $('shiftPpi').value === '' ? null : Number($('shiftPpi').value);
+  const items = $('shiftItems').value === '' ? null : Number($('shiftItems').value);
+  const hours = $('shiftHours').value === '' ? null : Number($('shiftHours').value);
+
+  if (!date || (iph === null && ppi === null) || [iph, ppi, items, hours].some(v => v !== null && (!Number.isFinite(v) || v < 0))) {
+    showNotice('INVALID SHIFT DATA', 'Enter a valid date and at least one measured metric (IPH or PPI).');
+    return;
+  }
+
+  data.shifts.push({
+    date,
+    iph,
+    ppi,
+    items,
+    hours,
+    skill: $('shiftSkill').value,
+    notes: $('shiftNotes').value.trim(),
+    created: Date.now()
+  });
+
+  $('shiftIph').value = '';
+  $('shiftPpi').value = '';
+  $('shiftItems').value = '';
+  $('shiftHours').value = '';
+  $('shiftNotes').value = '';
+  save();
+  toast('Shift report saved');
+});
+
+$('saveTraining').addEventListener('click', () => {
+  const date = $('trainingDate').value;
+  const minutes = Number($('trainingDuration').value);
+
+  if (!date || !Number.isInteger(minutes) || minutes < 1 || minutes > 600) {
+    showNotice('INVALID SESSION DATA', 'Enter a valid date and duration between 1 and 600 minutes.');
+    return;
+  }
+
+  data.training.push({
+    date,
+    type: $('trainingType').value,
+    minutes,
+    effort: $('trainingEffort').value,
+    notes: $('trainingNotes').value.trim()
+  });
+
+  $('trainingDuration').value = '';
+  $('trainingNotes').value = '';
+  save();
+  toast('Training session saved');
+});
+
+// File Download / Export / Import
+function download(name, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+$('exportBackup').addEventListener('click', () => {
+  download('blinkit-store-ops-backup.json', JSON.stringify(data, null, 2), 'application/json');
+  toast('JSON backup exported');
+});
+
+$('importBackup').addEventListener('click', () => $('backupFile').click());
+
+$('backupFile').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const x = JSON.parse(await f.text());
+    if (x.version !== 1 || !Array.isArray(x.shifts) || !Array.isArray(x.training) || typeof x.xp !== 'number') {
+      throw Error('Invalid backup');
+    }
+    showConfirm('RESTORE BACKUP', 'Replace current tracker data with this backup file?', () => {
+      data = { ...emptyData(), ...x };
+      save();
+      toast('Backup restored');
+    });
+  } catch (err) {
+    showNotice('IMPORT ERROR', 'Could not restore: invalid or corrupted backup file.');
+  }
+  e.target.value = '';
+});
+
+$('exportCsv').addEventListener('click', () => {
+  const rows = [
+    ['date', 'skill', 'iph', 'ppi', 'items', 'hours', 'notes'],
+    ...data.shifts.map(s => [s.date, s.skill, s.iph, s.ppi, s.items, s.hours, s.notes])
+  ];
+  const csv = rows.map(r => r.map(v => {
+    let s = String(v ?? '');
+    if (/^[=+@\-]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }).join(',')).join('\r\n');
+  download('blinkit-shift-history.csv', csv, 'text/csv');
+  toast('CSV exported');
+});
+
+$('clearData').addEventListener('click', () => {
+  showConfirm(
+    'DELETE ALL DATA',
+    'Permanently delete all tracker data stored on this device? Export a JSON backup first if needed.',
+    () => {
+      data = emptyData();
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      save();
+      toast('All local data cleared');
+    },
+    true
+  );
+});
+
+// Boot App
+$('shiftDate').value = today();
+$('trainingDate').value = today();
+$('todayDateLabel').textContent = today();
+safeLoad();
+render();
+</script>
+</body>
+</html>
